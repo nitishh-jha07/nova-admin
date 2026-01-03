@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { User, authService, LoginCredentials, AuthResponse } from '@/services/api';
+import { User, authService, LoginCredentials, RegisterData, AuthResponse } from '@/services/api';
 
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<AuthResponse>;
+  register: (data: RegisterData) => Promise<AuthResponse>;
   logout: () => Promise<void>;
 }
 
@@ -15,7 +16,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing session on mount
   useEffect(() => {
     const initAuth = async () => {
       try {
@@ -37,6 +37,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return response;
   }, []);
 
+  const register = useCallback(async (data: RegisterData): Promise<AuthResponse> => {
+    const response = await authService.register(data);
+    setUser(response.user);
+    return response;
+  }, []);
+
   const logout = useCallback(async () => {
     await authService.logout();
     setUser(null);
@@ -47,6 +53,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     isAuthenticated: !!user,
     login,
+    register,
     logout,
   };
 

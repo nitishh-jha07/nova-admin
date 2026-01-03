@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { Mail, Lock, AlertCircle, CheckCircle, GraduationCap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { loginSchema } from '@/services/api';
 import Input from '@/components/common/Input';
 import Button from '@/components/common/Button';
 import Checkbox from '@/components/common/Checkbox';
-import { z } from 'zod';
-
-// Validation schema
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -26,7 +20,6 @@ const Login: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard';
@@ -35,21 +28,18 @@ const Login: React.FC = () => {
   }, [isAuthenticated, navigate, location]);
 
   const validateForm = () => {
-    try {
-      loginSchema.parse({ email, password });
-      setFieldErrors({});
-      return true;
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        const errors: { email?: string; password?: string } = {};
-        err.errors.forEach((e) => {
-          const field = e.path[0] as 'email' | 'password';
-          errors[field] = e.message;
-        });
-        setFieldErrors(errors);
-      }
+    const result = loginSchema.safeParse({ email, password });
+    if (!result.success) {
+      const errors: { email?: string; password?: string } = {};
+      result.error.errors.forEach((e) => {
+        const field = e.path[0] as 'email' | 'password';
+        errors[field] = e.message;
+      });
+      setFieldErrors(errors);
       return false;
     }
+    setFieldErrors({});
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,11 +73,11 @@ const Login: React.FC = () => {
           {/* Logo */}
           <div className="text-center">
             <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-primary mb-4">
-              <span className="text-2xl font-bold text-primary-foreground">D</span>
+              <GraduationCap className="h-7 w-7 text-primary-foreground" />
             </div>
             <h1 className="text-3xl font-bold text-foreground">Welcome back</h1>
             <p className="mt-2 text-muted-foreground">
-              Enter your credentials to access your dashboard
+              Sign in to the Document Repository
             </p>
           </div>
 
@@ -95,14 +85,15 @@ const Login: React.FC = () => {
           <div className="rounded-lg bg-muted/50 border border-border p-4">
             <p className="text-sm text-muted-foreground">
               <span className="font-medium text-foreground">Demo credentials:</span><br />
-              Email: demo@example.com<br />
-              Password: password123
+              <strong>Student:</strong> student@example.com<br />
+              <strong>Professor:</strong> professor@example.com<br />
+              <strong>Password:</strong> password123
             </p>
           </div>
 
           {/* Error message */}
           {error && (
-            <div className="flex items-center gap-3 rounded-lg bg-destructive/10 border border-destructive/20 p-4 text-destructive fade-in" role="alert">
+            <div className="flex items-center gap-3 rounded-lg bg-destructive/10 border border-destructive/20 p-4 text-destructive animate-fade-in" role="alert">
               <AlertCircle className="h-5 w-5 flex-shrink-0" />
               <p className="text-sm">{error}</p>
             </div>
@@ -110,7 +101,7 @@ const Login: React.FC = () => {
 
           {/* Success message */}
           {success && (
-            <div className="flex items-center gap-3 rounded-lg bg-success/10 border border-success/20 p-4 text-success fade-in" role="alert">
+            <div className="flex items-center gap-3 rounded-lg bg-green-500/10 border border-green-500/20 p-4 text-green-600 animate-fade-in" role="alert">
               <CheckCircle className="h-5 w-5 flex-shrink-0" />
               <p className="text-sm">{success}</p>
             </div>
@@ -174,12 +165,12 @@ const Login: React.FC = () => {
           {/* Footer */}
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{' '}
-            <button
-              type="button"
+            <Link
+              to="/register"
               className="font-medium text-primary hover:text-primary/80 transition-colors"
             >
               Sign up
-            </button>
+            </Link>
           </p>
         </div>
       </div>
@@ -188,15 +179,15 @@ const Login: React.FC = () => {
       <div className="hidden lg:flex lg:flex-1 bg-primary items-center justify-center p-12">
         <div className="max-w-lg text-center">
           <div className="mb-8">
-            <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-accent mb-6">
-              <span className="text-4xl font-bold text-accent-foreground">✦</span>
+            <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-primary-foreground/10 mb-6">
+              <GraduationCap className="h-10 w-10 text-primary-foreground" />
             </div>
           </div>
           <h2 className="text-3xl font-bold text-primary-foreground mb-4">
-            Manage your business with confidence
+            Student Document Repository
           </h2>
           <p className="text-lg text-primary-foreground/80">
-            Get real-time insights, track performance, and make data-driven decisions all in one place.
+            Upload, manage, and share academic documents securely. Students can submit their work, and professors can review submissions easily.
           </p>
         </div>
       </div>
