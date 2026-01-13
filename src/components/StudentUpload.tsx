@@ -1,17 +1,31 @@
 import React, { useState, useRef } from 'react';
-import { Upload, X, FileText, Loader2, CheckCircle } from 'lucide-react';
+import { Upload, X, FileText, CheckCircle } from 'lucide-react';
 import Button from '@/components/common/Button';
 import Input from '@/components/common/Input';
-import { documentService } from '@/services/api';
+import { documentService, SUBJECTS, YEARS, BRANCHES, DocumentType } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface StudentUploadProps {
   onUploadSuccess?: () => void;
 }
 
+const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
+  { value: 'assignment', label: 'Assignment' },
+  { value: 'notes', label: 'Notes' },
+  { value: 'project', label: 'Project' },
+  { value: 'thesis', label: 'Thesis' },
+  { value: 'other', label: 'Other' },
+];
+
 const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
+  const { user } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [subject, setSubject] = useState('');
+  const [documentType, setDocumentType] = useState<DocumentType>('assignment');
+  const [year, setYear] = useState(user?.year || '');
+  const [branch, setBranch] = useState(user?.branch || '');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -22,11 +36,6 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'application/vnd.ms-powerpoint',
-    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-    'text/plain',
   ];
 
   const maxFileSize = 10 * 1024 * 1024; // 10MB
@@ -56,7 +65,7 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
     setUploadSuccess(false);
 
     if (!allowedTypes.includes(selectedFile.type)) {
-      setError('Invalid file type. Please upload PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, or TXT files.');
+      setError('Invalid file type. Please upload PDF or DOCX files only.');
       return;
     }
 
@@ -84,6 +93,21 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
       return;
     }
 
+    if (!subject) {
+      setError('Please select a subject.');
+      return;
+    }
+
+    if (!year) {
+      setError('Please select a year.');
+      return;
+    }
+
+    if (!branch) {
+      setError('Please select a branch.');
+      return;
+    }
+
     setIsUploading(true);
     setError('');
 
@@ -92,6 +116,10 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
       formData.append('file', file);
       formData.append('title', title.trim());
       formData.append('description', description.trim());
+      formData.append('subject', subject);
+      formData.append('documentType', documentType);
+      formData.append('year', year);
+      formData.append('branch', branch);
 
       await documentService.uploadDocument(formData);
       
@@ -99,6 +127,8 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
       setFile(null);
       setTitle('');
       setDescription('');
+      setSubject('');
+      setDocumentType('assignment');
       
       if (onUploadSuccess) {
         onUploadSuccess();
@@ -123,6 +153,9 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
   return (
     <div className="bg-card rounded-xl border border-border p-6">
       <h2 className="text-lg font-semibold text-foreground mb-4">Upload Document</h2>
+      <p className="text-sm text-muted-foreground mb-6">
+        Once uploaded, documents are read-only and submitted for professor review.
+      </p>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* File Drop Zone */}
@@ -143,7 +176,7 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
             ref={fileInputRef}
             type="file"
             onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+            accept=".pdf,.doc,.docx"
             className="hidden"
           />
 
@@ -181,10 +214,84 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
                 Choose File
               </Button>
               <p className="text-xs text-muted-foreground mt-4">
-                Supported: PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, TXT (max 10MB)
+                Supported: PDF, DOCX (max 10MB)
               </p>
             </>
           )}
+        </div>
+
+        {/* Form Fields Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Subject */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              Subject <span className="text-destructive">*</span>
+            </label>
+            <select
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              required
+            >
+              <option value="">Select Subject</option>
+              {SUBJECTS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Document Type */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              Document Type <span className="text-destructive">*</span>
+            </label>
+            <select
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value as DocumentType)}
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              required
+            >
+              {DOCUMENT_TYPES.map((type) => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Year */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              Year <span className="text-destructive">*</span>
+            </label>
+            <select
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              required
+            >
+              <option value="">Select Year</option>
+              {YEARS.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Branch */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-foreground">
+              Branch <span className="text-destructive">*</span>
+            </label>
+            <select
+              value={branch}
+              onChange={(e) => setBranch(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              required
+            >
+              <option value="">Select Branch</option>
+              {BRANCHES.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Title Input */}
@@ -222,7 +329,7 @@ const StudentUpload: React.FC<StudentUploadProps> = ({ onUploadSuccess }) => {
         {uploadSuccess && (
           <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20 text-green-600 text-sm flex items-center gap-2">
             <CheckCircle className="w-5 h-5" />
-            Document uploaded successfully!
+            Document uploaded successfully! It is now pending review.
           </div>
         )}
 
