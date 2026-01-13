@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   FileText, 
   Download, 
@@ -6,9 +6,14 @@ import {
   Clock, 
   User,
   FileIcon,
-  MoreVertical
+  Eye,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import { Document } from '@/services/api';
+import { Document, DocumentStatus } from '@/services/api';
 import { formatDistanceToNow } from 'date-fns';
 
 interface DocumentListProps {
@@ -17,8 +22,39 @@ interface DocumentListProps {
   showUploader?: boolean;
   onDownload?: (doc: Document) => void;
   onDelete?: (doc: Document) => void;
+  onPreview?: (doc: Document) => void;
   canDelete?: boolean;
+  showStatus?: boolean;
 }
+
+const StatusBadge: React.FC<{ status: DocumentStatus }> = ({ status }) => {
+  const config = {
+    submitted: {
+      icon: AlertCircle,
+      label: 'Submitted',
+      className: 'bg-warning/10 text-warning border-warning/20',
+    },
+    approved: {
+      icon: CheckCircle,
+      label: 'Approved',
+      className: 'bg-green-500/10 text-green-600 border-green-500/20',
+    },
+    rejected: {
+      icon: XCircle,
+      label: 'Rejected',
+      className: 'bg-destructive/10 text-destructive border-destructive/20',
+    },
+  };
+
+  const { icon: Icon, label, className } = config[status];
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${className}`}>
+      <Icon className="w-3.5 h-3.5" />
+      {label}
+    </span>
+  );
+};
 
 const DocumentList: React.FC<DocumentListProps> = ({
   documents,
@@ -26,8 +62,12 @@ const DocumentList: React.FC<DocumentListProps> = ({
   showUploader = true,
   onDownload,
   onDelete,
+  onPreview,
   canDelete = false,
+  showStatus = true,
 }) => {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -91,65 +131,130 @@ const DocumentList: React.FC<DocumentListProps> = ({
       {documents.map((doc, index) => (
         <div 
           key={doc.id}
-          className="bg-card rounded-xl border border-border p-4 hover:shadow-md transition-all duration-200 animate-fade-in"
+          className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-all duration-200 animate-fade-in"
           style={{ animationDelay: `${index * 50}ms` }}
         >
-          <div className="flex items-start gap-4">
-            {/* File Icon */}
-            <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center">
-              {getFileIcon(doc.fileType)}
-            </div>
+          <div className="p-4">
+            <div className="flex items-start gap-4">
+              {/* File Icon */}
+              <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-muted/50 flex items-center justify-center">
+                {getFileIcon(doc.fileType)}
+              </div>
 
-            {/* Document Info */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base font-semibold text-foreground truncate">
-                {doc.title}
-              </h3>
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                {doc.description}
-              </p>
-              
-              <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5" />
-                  {doc.fileName}
-                </span>
-                <span>{formatFileSize(doc.fileSize)}</span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  {formatDistanceToNow(new Date(doc.createdAt), { addSuffix: true })}
-                </span>
-                {showUploader && (
-                  <span className="flex items-center gap-1">
-                    <User className="w-3.5 h-3.5" />
-                    {doc.uploadedBy.name}
+              {/* Document Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="text-base font-semibold text-foreground truncate">
+                    {doc.title}
+                  </h3>
+                  {showStatus && <StatusBadge status={doc.status} />}
+                </div>
+                
+                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                  {doc.description}
+                </p>
+                
+                <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded-full">
+                    {doc.subject}
                   </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded-full">
+                    {doc.year}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-muted rounded-full capitalize">
+                    {doc.documentType}
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 mt-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <FileText className="w-3.5 h-3.5" />
+                    {doc.fileName}
+                  </span>
+                  <span>{formatFileSize(doc.fileSize)}</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="w-3.5 h-3.5" />
+                    {formatDistanceToNow(new Date(doc.createdAt), { addSuffix: true })}
+                  </span>
+                  {showUploader && (
+                    <span className="flex items-center gap-1">
+                      <User className="w-3.5 h-3.5" />
+                      {doc.uploadedBy.name}
+                      {doc.uploadedBy.rollNumber && ` (${doc.uploadedBy.rollNumber})`}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2">
+                {onPreview && (
+                  <button
+                    onClick={() => onPreview(doc)}
+                    className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title="Preview"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
+                )}
+                {onDownload && (
+                  <button
+                    onClick={() => onDownload(doc)}
+                    className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
+                    title="Download"
+                  >
+                    <Download className="w-5 h-5" />
+                  </button>
+                )}
+                {canDelete && onDelete && doc.status === 'submitted' && (
+                  <button
+                    onClick={() => onDelete(doc)}
+                    className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                    title="Delete"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
+                {doc.professorComment && (
+                  <button
+                    onClick={() => setExpandedId(expandedId === doc.id ? null : doc.id)}
+                    className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                    title="View feedback"
+                  >
+                    {expandedId === doc.id ? (
+                      <ChevronUp className="w-5 h-5" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5" />
+                    )}
+                  </button>
                 )}
               </div>
             </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2">
-              {onDownload && (
-                <button
-                  onClick={() => onDownload(doc)}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-primary transition-colors"
-                  title="Download"
-                >
-                  <Download className="w-5 h-5" />
-                </button>
-              )}
-              {canDelete && onDelete && (
-                <button
-                  onClick={() => onDelete(doc)}
-                  className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                  title="Delete"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              )}
-            </div>
           </div>
+
+          {/* Professor Feedback Section */}
+          {doc.professorComment && expandedId === doc.id && (
+            <div className="px-4 pb-4">
+              <div className={`p-4 rounded-lg ${
+                doc.status === 'approved' 
+                  ? 'bg-green-500/5 border border-green-500/20' 
+                  : 'bg-destructive/5 border border-destructive/20'
+              }`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <User className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm font-medium text-foreground">
+                    {doc.reviewedBy?.name || 'Professor'}
+                  </span>
+                  {doc.reviewedAt && (
+                    <span className="text-xs text-muted-foreground">
+                      • {formatDistanceToNow(new Date(doc.reviewedAt), { addSuffix: true })}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-foreground">{doc.professorComment}</p>
+              </div>
+            </div>
+          )}
         </div>
       ))}
     </div>
